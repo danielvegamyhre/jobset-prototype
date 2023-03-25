@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -131,17 +130,20 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	r.cleanUpOldJobs(ctx, failedJobs, successfulJobs, log)
 
-	// Each job should only start when the previous job is ready.
 	for i, _ := range jobSet.Spec.Jobs {
-		// Only start job if previous job is ready and this job is not yet active (i.e. finishedType == "")
+		// Skip this job if it is already active.
 		job, err := r.constructJobFromTemplate(&jobSet, i)
-		_, finishedType := isJobFinished(job)
-		prevJobIsReady := i > 0 && childJobs.Items[i-1].Status.Ready != nil && finishedType != ""
-		if i == 0 || prevJobIsReady {
-			if err != nil {
-				log.Error(err, "error constructing job from template", "job", job)
-				return ctrl.Result{}, err
-			}
+		if err != nil {
+			log.Error(err, "unable to construct job from template", "jobTemplate", jobSet.Spec.Jobs[i])
+			return ctrl.Result{}, err
+		}
+		if isJobActive(activeJobs, job.Name) {
+			log.Info("job is already active", "job", job)
+			continue
+		}
+
+		// Only create job if previous job is ready and this job is not yet active.
+		if i == 0 || isPrevJobReady(activeJobs, jobSet.Spec.Jobs[i-1].Name) {
 			if err := r.Create(ctx, job); err != nil {
 				log.Error(err, "unable to create Job for JobSet", "job", job)
 				return ctrl.Result{}, err
@@ -149,7 +151,7 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			log.V(1).Info("created Job for JobSet run", "job", job)
 		}
 	}
-	return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -186,12 +188,11 @@ func (r *JobSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *JobSetReconciler) constructJobFromTemplate(jobSet *jobsetv1.JobSet, jobIdx int) (*batchv1.Job, error) {
 	jobTemplate := jobSet.Spec.Jobs[jobIdx]
 	// We want job names for a given nominal start time to have a deterministic name to avoid the same job being created twice
-	name := fmt.Sprintf("%s-%d", jobTemplate.Name, time.Now().Unix())
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
-			Name:        name,
+			Name:        jobTemplate.Name,
 			Namespace:   jobSet.Namespace,
 		},
 		Spec: *jobTemplate.Template.Spec.DeepCopy(),
@@ -243,3 +244,99 @@ func (r *JobSetReconciler) cleanUpOldJobs(ctx context.Context, failedJobs, succe
 		}
 	}
 }
+
+func isJobActive(activeJobs []*batchv1.Job, jobName string) bool {
+	for _, job := range activeJobs {
+		if job.Name == jobName {
+			return true
+		}
+	}
+	return false
+}
+
+func isPrevJobReady(activeJobs []*batchv1.Job, prevJobName string) bool {
+	for _, job := range activeJobs {
+		if job.Name == prevJobName && job.Status.Ready != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+// 	log := log.FromContext(ctx)
+
+// 	var jobSet jobsetv1.JobSet
+// 	if err := r.Get(ctx, req.NamespacedName, &jobSet); err != nil {
+// 		log.Error(err, "unable to fetch JobSet")
+// 		// we'll ignore not-found errors, since they can't be fixed by an immediate
+// 		// requeue (we'll need to wait for a new notification), and we can get them
+// 		// on deleted requests.
+// 		return ctrl.Result{}, client.IgnoreNotFound(err)
+// 	}
+
+// 	// List all active jobs and update the status.
+// 	var childJobs batchv1.JobList
+// 	if err := r.List(ctx, &childJobs, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
+// 		log.Error(err, "unable to list child Jobs")
+// 		return ctrl.Result{}, err
+// 	}
+
+// 	// find the active list of jobs
+// 	var activeJobs []*batchv1.Job
+// 	var successfulJobs []*batchv1.Job
+// 	var failedJobs []*batchv1.Job
+
+// 	for i, job := range childJobs.Items {
+// 		_, finishedType := isJobFinished(&job)
+// 		switch finishedType {
+// 		case "": // ongoing
+// 			activeJobs = append(activeJobs, &childJobs.Items[i])
+// 		case batchv1.JobFailed:
+// 			failedJobs = append(failedJobs, &childJobs.Items[i])
+// 		case batchv1.JobComplete:
+// 			successfulJobs = append(successfulJobs, &childJobs.Items[i])
+// 		}
+// 	}
+
+// 	// Update jobSet with its active jobs.
+// 	jobSet.Status.Active = nil
+// 	for _, activeJob := range activeJobs {
+// 		jobRef, err := ref.GetReference(r.Scheme, activeJob)
+// 		if err != nil {
+// 			log.Error(err, "unable to make reference to active job", "job", activeJob)
+// 			continue
+// 		}
+// 		jobSet.Status.Active = append(jobSet.Status.Active, *jobRef)
+// 	}
+
+// 	log.V(1).Info("job count", "active jobs", len(activeJobs), "successful jobs", len(successfulJobs), "failed jobs", len(failedJobs))
+
+// 	// Update status of CRD
+// 	if err := r.Status().Update(ctx, &jobSet); err != nil {
+// 		log.Error(err, "unable to update JobSet status")
+// 		return ctrl.Result{}, err
+// 	}
+
+// 	r.cleanUpOldJobs(ctx, failedJobs, successfulJobs, log)
+
+// 	// Each job should only start when the previous job is ready.
+// 	for i, _ := range jobSet.Spec.Jobs {
+// 		// Only start job if previous job is ready and this job is not yet active (i.e. finishedType == "")
+// 		job, err := r.constructJobFromTemplate(&jobSet, i)
+// 		_, finishedType := isJobFinished(job)
+// 		prevJobIsReady := i > 0 && childJobs.Items[i-1].Status.Ready != nil && finishedType != ""
+// 		if i == 0 || prevJobIsReady {
+// 			if err != nil {
+// 				log.Error(err, "error constructing job from template", "job", job)
+// 				return ctrl.Result{}, err
+// 			}
+// 			if err := r.Create(ctx, job); err != nil {
+// 				log.Error(err, "unable to create Job for JobSet", "job", job)
+// 				return ctrl.Result{}, err
+// 			}
+// 			log.V(1).Info("created Job for JobSet run", "job", job)
+// 		}
+// 	}
+// 	return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+// }
