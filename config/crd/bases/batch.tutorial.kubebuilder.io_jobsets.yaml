@@ -47,14 +47,14 @@ spec:
                       description: network defines the networking options for the
                         job.
                       properties:
-                        headless_service:
+                        headlessService:
                           description: headlessService if true a headless service
                             will be created for the job. The name of the service will
                             be “template.spec.template.spec.subdomain” (the field
                             from the pod template), which must be set.
                           type: boolean
                       required:
-                      - headless_service
+                      - headlessService
                       type: object
                     template:
                       description: template defines the template of the Job that will
@@ -2531,7 +2531,9 @@ spec:
                                                   - name
                                                   type: object
                                                 type: array
-                                                x-kubernetes-list-type: set
+                                                x-kubernetes-list-map-keys:
+                                                - name
+                                                x-kubernetes-list-type: map
                                               limits:
                                                 additionalProperties:
                                                   anyOf:
@@ -4166,7 +4168,9 @@ spec:
                                                   - name
                                                   type: object
                                                 type: array
-                                                x-kubernetes-list-type: set
+                                                x-kubernetes-list-map-keys:
+                                                - name
+                                                x-kubernetes-list-type: map
                                               limits:
                                                 additionalProperties:
                                                   anyOf:
@@ -5844,7 +5848,9 @@ spec:
                                                   - name
                                                   type: object
                                                 type: array
-                                                x-kubernetes-list-type: set
+                                                x-kubernetes-list-map-keys:
+                                                - name
+                                                x-kubernetes-list-type: map
                                               limits:
                                                 additionalProperties:
                                                   anyOf:
@@ -8026,7 +8032,9 @@ spec:
                                                               - name
                                                               type: object
                                                             type: array
-                                                            x-kubernetes-list-type: set
+                                                            x-kubernetes-list-map-keys:
+                                                            - name
+                                                            x-kubernetes-list-type: map
                                                           limits:
                                                             additionalProperties:
                                                               anyOf:

@@ -132,23 +132,24 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	r.cleanUpOldJobs(ctx, failedJobs, successfulJobs, log)
 
 	// Each job should only start when the previous job is ready.
-	for i, job := range childJobs.Items {
-		_, finishedType := isJobFinished(&job)
+	for i, _ := range jobSet.Spec.Jobs {
 		// Only start job if previous job is ready and this job is not yet active (i.e. finishedType == "")
-		if i > 0 && childJobs.Items[i-1].Status.Ready != nil && finishedType != "" {
-			newJob, err := r.constructJobFromTemplate(&jobSet, childJobs, i)
+		job, err := r.constructJobFromTemplate(&jobSet, i)
+		_, finishedType := isJobFinished(job)
+		prevJobIsReady := i > 0 && childJobs.Items[i-1].Status.Ready != nil && finishedType != ""
+		if i == 0 || prevJobIsReady {
 			if err != nil {
 				log.Error(err, "error constructing job from template", "job", job)
 				return ctrl.Result{}, err
 			}
-			if err := r.Create(ctx, newJob); err != nil {
+			if err := r.Create(ctx, job); err != nil {
 				log.Error(err, "unable to create Job for JobSet", "job", job)
 				return ctrl.Result{}, err
 			}
 			log.V(1).Info("created Job for JobSet run", "job", job)
 		}
 	}
-	return ctrl.Result{RequeueAfter: time.Millisecond}, nil
+	return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -165,8 +166,8 @@ func (r *JobSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		if owner == nil {
 			return nil
 		}
-		// ...make sure it's a CronJob...
-		if owner.APIVersion != apiGVStr || owner.Kind != "CronJob" {
+		// ...make sure it's a JobSet...
+		if owner.APIVersion != apiGVStr || owner.Kind != "JobSet" {
 			return nil
 		}
 
@@ -177,12 +178,12 @@ func (r *JobSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&batchv1.CronJob{}).
+		For(&jobsetv1.JobSet{}).
 		Owns(&batchv1.Job{}).
 		Complete(r)
 }
 
-func (r *JobSetReconciler) constructJobFromTemplate(jobSet *jobsetv1.JobSet, childJobs batchv1.JobList, jobIdx int) (*batchv1.Job, error) {
+func (r *JobSetReconciler) constructJobFromTemplate(jobSet *jobsetv1.JobSet, jobIdx int) (*batchv1.Job, error) {
 	jobTemplate := jobSet.Spec.Jobs[jobIdx]
 	// We want job names for a given nominal start time to have a deterministic name to avoid the same job being created twice
 	name := fmt.Sprintf("%s-%d", jobTemplate.Name, time.Now().Unix())

@@ -75,7 +75,7 @@ type Network struct {
 	// headlessService if true a headless service will be created for the job.
 	// The name of the service will be “template.spec.template.spec.subdomain”
 	// (the field from the pod template), which must be set.
-	HeadlessService *bool `json:"headless_service"`
+	HeadlessService *bool `json:"headlessService"`
 }
 
 func init() {
