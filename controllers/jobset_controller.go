@@ -32,13 +32,15 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeclientset "k8s.io/client-go/kubernetes"
 	jobsetv1 "tutorial.kubebuilder.io/project/api/v1"
 )
 
 // JobSetReconciler reconciles a JobSet object
 type JobSetReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme        *runtime.Scheme
+	KubeClientSet *kubeclientset.Clientset
 	Clock
 }
 
@@ -130,7 +132,8 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	r.cleanUpOldJobs(ctx, failedJobs, successfulJobs, log)
 
-	for i, _ := range jobSet.Spec.Jobs {
+	// Create jobs as necessary.
+	for i, jobTemplate := range jobSet.Spec.Jobs {
 		// Skip this job if it is already active.
 		job, err := r.constructJobFromTemplate(&jobSet, i)
 		if err != nil {
@@ -149,6 +152,40 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				return ctrl.Result{}, err
 			}
 			log.V(1).Info("created Job for JobSet run", "job", job)
+
+			// Create headless service if specified.
+			if jobTemplate.Network.HeadlessService != nil && *jobTemplate.Network.HeadlessService {
+				// Check if service already exists. Service name is same as job name.
+				if _, err := r.KubeClientSet.CoreV1().Services(req.Namespace).Get(ctx, job.Name, metav1.GetOptions{}); err != nil {
+					headlessSvc := corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      job.Name,
+							Namespace: req.Namespace,
+						},
+						Spec: corev1.ServiceSpec{
+							ClusterIP: "None",
+							Ports: []corev1.ServicePort{
+								{
+									Port: 8443,
+								},
+							},
+							Selector: map[string]string{
+								"job-name": job.Name,
+							},
+						},
+					}
+					// set controller owner reference for garbage collection and reconcilation
+					if err := ctrl.SetControllerReference(&jobSet, &headlessSvc, r.Scheme); err != nil {
+						log.Error(err, "error setting controller owner reference for headless service", "service", headlessSvc)
+						return ctrl.Result{}, err
+					}
+					if _, err := r.KubeClientSet.CoreV1().Services(req.Namespace).Create(ctx, &headlessSvc, metav1.CreateOptions{}); err != nil {
+						log.Error(err, "unable to create headless service", "service", headlessSvc)
+						return ctrl.Result{}, err
+					}
+				}
+
+			}
 		}
 	}
 	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil

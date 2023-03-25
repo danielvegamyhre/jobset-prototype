@@ -20,6 +20,7 @@ spec:
         completions: 4
         template:
           spec:
+            subdomain: pytorch-worker
             restartPolicy: Never
             containers:
             - name: pytorch
@@ -34,6 +35,17 @@ spec:
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+              - name: MASTER_ADDR
+                value: pytorch-worker-0.pytorch-worker
+              - name: WORLD_SIZE
+                value: "4"
+              # debugging env vars
+              - name: PYTHONBUFFERED
+                value: "0"
+              - name: LOGLEVEL
+                value: "INFO"
+              - name: TORCH_CPP_LOG_LEVEL
+                value: "INFO" 
               command:
               - bash
               - -xc
