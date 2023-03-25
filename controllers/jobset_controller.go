@@ -48,16 +48,6 @@ var (
 	scheduledTimeAnnotation = "batch.tutorial.kubebuilder.io/scheduled-at"
 )
 
-type realClock struct{}
-
-func (_ realClock) Now() time.Time { return time.Now() }
-
-// clock knows how to get the current time.
-// It can be used to fake out timing for testing.
-type Clock interface {
-	Now() time.Time
-}
-
 //+kubebuilder:rbac:groups=batch.tutorial.kubebuilder.io,resources=jobsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=batch.tutorial.kubebuilder.io,resources=jobsets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=batch.tutorial.kubebuilder.io,resources=jobsets/finalizers,verbs=update
@@ -147,7 +137,7 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			log.V(1).Info("created Job for JobSet run", "job", job)
 		}
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.Now()}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
