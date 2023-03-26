@@ -50,9 +50,8 @@ type childJobs struct {
 }
 
 var (
-	jobOwnerKey             = ".metadata.controller"
-	apiGVStr                = jobsetv1.GroupVersion.String()
-	scheduledTimeAnnotation = "batch.tutorial.kubebuilder.io/scheduled-at"
+	jobOwnerKey = ".metadata.controller"
+	apiGVStr    = jobsetv1.GroupVersion.String()
 )
 
 type realClock struct{}
@@ -97,7 +96,7 @@ func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.updateJobSetStatus(ctx, &jobSet, jobs, log); err != nil {
+	if err := r.updateStatus(ctx, &jobSet, jobs, log); err != nil {
 		return ctrl.Result{}, nil
 	}
 
@@ -158,6 +157,8 @@ func (r *JobSetReconciler) constructJobFromTemplate(jobSet *jobsetv1.JobSet, job
 	return job, nil
 }
 
+// cleanUpOldJobs does "best effort" deletion of old jobs - if we fail on
+// a particular one, we won't requeue just to finish the deleting.
 func (r *JobSetReconciler) cleanUpOldJobs(ctx context.Context, jobs *childJobs, log logr.Logger) {
 	// Clean up failed jobs
 	for _, job := range jobs.failed {
@@ -178,6 +179,8 @@ func (r *JobSetReconciler) cleanUpOldJobs(ctx context.Context, jobs *childJobs, 
 	}
 }
 
+// getChildJobs fetches all Jobs owned by the JobSet and returns them
+// categorized by status (active, successful, failed).
 func (r *JobSetReconciler) getChildJobs(ctx context.Context, jobSet *jobsetv1.JobSet, req ctrl.Request, log logr.Logger) (*childJobs, error) {
 	// Get all active jobs owned by JobSet.
 	var childJobList batchv1.JobList
@@ -202,8 +205,10 @@ func (r *JobSetReconciler) getChildJobs(ctx context.Context, jobSet *jobsetv1.Jo
 	return &jobs, nil
 }
 
-func (r *JobSetReconciler) updateJobSetStatus(ctx context.Context, jobSet *jobsetv1.JobSet, jobs *childJobs, log logr.Logger) error {
-	// Update jobSet with its active jobs.
+// updateStatus
+func (r *JobSetReconciler) updateStatus(ctx context.Context, jobSet *jobsetv1.JobSet, jobs *childJobs, log logr.Logger) error {
+	// TODO: Why is .Status.Active type []*corev1.ObjectReference instead of []*batchv1.Job?
+	// Is it because this is a generic way for kubebuilder to generate boilerplate data structures for CRDs?
 	jobSet.Status.Active = nil
 	for _, activeJob := range jobs.active {
 		jobRef, err := ref.GetReference(r.Scheme, activeJob)
@@ -214,13 +219,11 @@ func (r *JobSetReconciler) updateJobSetStatus(ctx context.Context, jobSet *jobse
 		jobSet.Status.Active = append(jobSet.Status.Active, *jobRef)
 	}
 
-	log.V(1).Info("job count", "active jobs", len(jobs.active), "successful jobs", len(jobs.successful), "failed jobs", len(jobs.failed))
-
-	// Update status of CRD
 	if err := r.Status().Update(ctx, jobSet); err != nil {
 		log.Error(err, "unable to update JobSet status")
 		return err
 	}
+	log.V(1).Info("job count", "active jobs", len(jobs.active), "successful jobs", len(jobs.successful), "failed jobs", len(jobs.failed))
 	return nil
 }
 
@@ -299,6 +302,7 @@ func isJobFinished(job *batchv1.Job) (bool, batchv1.JobConditionType) {
 	return false, ""
 }
 
+// TODO: is there a better way to check this?
 func isJobActive(activeJobs []*batchv1.Job, jobName string) bool {
 	for _, job := range activeJobs {
 		if job.Name == jobName {
