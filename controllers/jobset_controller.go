@@ -243,18 +243,20 @@ func (r *JobSetReconciler) createNewJobs(ctx context.Context, req ctrl.Request, 
 
 		// Only create job if previous job is ready and this job is not yet active.
 		if i == 0 || isPrevJobReady(jobs.active, jobSet.Spec.Jobs[i-1].Name) {
+			// First create headless service if specified for this job.
+			if jobTemplate.Network.HeadlessService != nil && *jobTemplate.Network.HeadlessService {
+				if err := r.createHeadlessSvcIfNotExist(ctx, req, jobSet, job, log); err != nil {
+					return err
+				}
+				// Update job spec to set subdomain as headless service name (will always be same as job name)
+				job.Spec.Template.Spec.Subdomain = job.Name
+			}
+
 			if err := r.Create(ctx, job); err != nil {
 				log.Error(err, "unable to create Job for JobSet", "job", job)
 				return err
 			}
 			log.V(1).Info("created Job for JobSet run", "job", job)
-
-			// Create headless service if specified.
-			if jobTemplate.Network.HeadlessService != nil && *jobTemplate.Network.HeadlessService {
-				if err := r.createHeadlessSvcIfNotExist(ctx, req, jobSet, job, log); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil
