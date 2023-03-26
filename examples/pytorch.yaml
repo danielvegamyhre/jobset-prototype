@@ -29,16 +29,16 @@ spec:
               ports:
               - containerPort: 3389
               env:
+              - name: MASTER_ADDR
+                value: pytorch-worker-0.pytorch-worker
               - name: MASTER_PORT
                 value: "3389"
+              - name: WORLD_SIZE
+                value: "4"
               - name: RANK
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
-              - name: MASTER_ADDR
-                value: pytorch-worker-0.pytorch-worker
-              - name: WORLD_SIZE
-                value: "4"
               # debugging env vars
               - name: PYTHONBUFFERED
                 value: "0"
