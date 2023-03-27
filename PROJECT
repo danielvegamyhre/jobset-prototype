@@ -9,12 +9,12 @@ projectName: jobset
 repo: batch.x-k8s.io/jobset
 resources:
 - api:
-    crdVersion: v1
+    crdVersion: v1alpha1
     namespaced: true
   controller: true
   domain: batch.x-k8s.io
   group: batch
   kind: JobSet
-  path: batch.x-k8s.io/jobset/api/v1
-  version: v1
+  path: batch.x-k8s.io/jobset/api/v1alpha1
+  version: v1alpha1
 version: "3"
