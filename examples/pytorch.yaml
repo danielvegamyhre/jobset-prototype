@@ -20,7 +20,6 @@ spec:
         completions: 4
         template:
           spec:
-            subdomain: pytorch-worker
             restartPolicy: Never
             containers:
             - name: pytorch
