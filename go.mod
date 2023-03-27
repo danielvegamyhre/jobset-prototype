@@ -1,4 +1,4 @@
-module tutorial.kubebuilder.io/project
+module batch.x-k8s.io/jobset
 
 go 1.19
 

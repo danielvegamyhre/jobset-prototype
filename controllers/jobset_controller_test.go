@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	jobsetv1 "batch.x-k8s.io/jobset/api/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -11,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
-	jobsetv1 "tutorial.kubebuilder.io/project/api/v1"
 )
 
 var _ = Describe("JobSet controller", func() {
@@ -34,7 +34,7 @@ var _ = Describe("JobSet controller", func() {
 			ctx := context.Background()
 			jobSet := &jobsetv1.JobSet{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "batch.tutorial.kubebuilder.io/v1",
+					APIVersion: "batch.x-k8s.io/v1",
 					Kind:       "JobSet",
 				},
 				ObjectMeta: metav1.ObjectMeta{
