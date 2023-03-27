@@ -316,7 +316,7 @@ func isJobActive(activeJobs []*batchv1.Job, jobName string) bool {
 
 func isPrevJobReady(activeJobs []*batchv1.Job, prevJobName string) bool {
 	for _, job := range activeJobs {
-		if job.Name == prevJobName && job.Status.Ready != nil {
+		if job.Name == prevJobName && job.Status.Ready == job.Spec.Parallelism {
 			return true
 		}
 	}

@@ -61,7 +61,7 @@ var _ = Describe("JobSet controller", func() {
 											Containers: []corev1.Container{
 												{
 													Name:  "test-container-1-name",
-													Image: "test-container-1-image",
+													Image: "busybox:latest",
 												},
 											},
 										},
@@ -87,7 +87,7 @@ var _ = Describe("JobSet controller", func() {
 											Containers: []corev1.Container{
 												{
 													Name:  "test-container-2-name",
-													Image: "test-container-2-image",
+													Image: "busybox:latest",
 												},
 											},
 										},
@@ -117,9 +117,6 @@ var _ = Describe("JobSet controller", func() {
 				err := k8sClient.Get(ctx, jobSetLookupKey, createdJobSet)
 				if err != nil {
 					return -1, err
-				}
-				if len(createdJobSet.Status.Active) < 1 {
-					return -1, nil
 				}
 				return len(createdJobSet.Status.Active), nil
 			}, duration, interval).Should(Equal(2))
