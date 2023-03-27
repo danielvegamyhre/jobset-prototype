@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	jobsetv1 "batch.x-k8s.io/jobset/api/v1"
+	jobsetv1alpha "batch.x-k8s.io/jobset/api/v1alpha1"
 	"batch.x-k8s.io/jobset/controllers"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	//+kubebuilder:scaffold:imports
@@ -45,7 +45,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(jobsetv1.AddToScheme(scheme))
+	utilruntime.Must(jobsetv1alpha.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

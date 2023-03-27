@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	jobsetv1 "batch.x-k8s.io/jobset/api/v1"
+	jobsetv1alpha "batch.x-k8s.io/jobset/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -32,7 +32,7 @@ var _ = Describe("JobSet controller", func() {
 			By("By creating a new JobSet")
 			indexedCompletionMode := batchv1.IndexedCompletion
 			ctx := context.Background()
-			jobSet := &jobsetv1.JobSet{
+			jobSet := &jobsetv1alpha.JobSet{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "batch.x-k8s.io/v1",
 					Kind:       "JobSet",
@@ -41,11 +41,11 @@ var _ = Describe("JobSet controller", func() {
 					Name:      JobsetName,
 					Namespace: JobsetNamespace,
 				},
-				Spec: jobsetv1.JobSetSpec{
-					Jobs: []jobsetv1.JobTemplate{
+				Spec: jobsetv1alpha.JobSetSpec{
+					Jobs: []jobsetv1alpha.JobTemplate{
 						{
 							Name:    "test-job-1-template-name",
-							Network: &jobsetv1.Network{HeadlessService: pointer.Bool(true)},
+							Network: &jobsetv1alpha.Network{HeadlessService: pointer.Bool(true)},
 							Template: &batchv1.JobTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      "test-job-1-name",
@@ -71,7 +71,7 @@ var _ = Describe("JobSet controller", func() {
 						},
 						{
 							Name:    "test-job-2-template-name",
-							Network: &jobsetv1.Network{HeadlessService: pointer.Bool(true)},
+							Network: &jobsetv1alpha.Network{HeadlessService: pointer.Bool(true)},
 							Template: &batchv1.JobTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Name:      "test-job-2-name",
@@ -101,7 +101,7 @@ var _ = Describe("JobSet controller", func() {
 			Expect(k8sClient.Create(ctx, jobSet)).Should(Succeed())
 
 			jobSetLookupKey := types.NamespacedName{Name: JobsetName, Namespace: JobsetNamespace}
-			createdJobSet := &jobsetv1.JobSet{}
+			createdJobSet := &jobsetv1alpha.JobSet{}
 
 			// We'll need to retry getting this newly created JobSet, given that creation may not immediately happen.
 			Eventually(func() bool {

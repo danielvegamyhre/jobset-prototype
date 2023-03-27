@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	jobsetv1 "batch.x-k8s.io/jobset/api/v1"
+	jobsetv1alpha "batch.x-k8s.io/jobset/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +51,7 @@ type childJobs struct {
 
 var (
 	jobOwnerKey = ".metadata.controller"
-	apiGVStr    = jobsetv1.GroupVersion.String()
+	apiGVStr    = jobsetv1alpha.GroupVersion.String()
 )
 
 type realClock struct{}
@@ -82,7 +82,7 @@ type Clock interface {
 func (r *JobSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	var jobSet jobsetv1.JobSet
+	var jobSet jobsetv1alpha.JobSet
 	if err := r.Get(ctx, req.NamespacedName, &jobSet); err != nil {
 		log.Error(err, "unable to fetch JobSet")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
@@ -135,12 +135,12 @@ func (r *JobSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&jobsetv1.JobSet{}).
+		For(&jobsetv1alpha.JobSet{}).
 		Owns(&batchv1.Job{}).
 		Complete(r)
 }
 
-func (r *JobSetReconciler) constructJobFromTemplate(jobSet *jobsetv1.JobSet, jobTemplate *jobsetv1.JobTemplate) (*batchv1.Job, error) {
+func (r *JobSetReconciler) constructJobFromTemplate(jobSet *jobsetv1alpha.JobSet, jobTemplate *jobsetv1alpha.JobTemplate) (*batchv1.Job, error) {
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
@@ -181,7 +181,7 @@ func (r *JobSetReconciler) cleanUpOldJobs(ctx context.Context, jobs *childJobs, 
 
 // getChildJobs fetches all Jobs owned by the JobSet and returns them
 // categorized by status (active, successful, failed).
-func (r *JobSetReconciler) getChildJobs(ctx context.Context, jobSet *jobsetv1.JobSet, req ctrl.Request, log logr.Logger) (*childJobs, error) {
+func (r *JobSetReconciler) getChildJobs(ctx context.Context, jobSet *jobsetv1alpha.JobSet, req ctrl.Request, log logr.Logger) (*childJobs, error) {
 	// Get all active jobs owned by JobSet.
 	var childJobList batchv1.JobList
 	if err := r.List(ctx, &childJobList, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
@@ -206,7 +206,7 @@ func (r *JobSetReconciler) getChildJobs(ctx context.Context, jobSet *jobsetv1.Jo
 }
 
 // updateStatus
-func (r *JobSetReconciler) updateStatus(ctx context.Context, jobSet *jobsetv1.JobSet, jobs *childJobs, log logr.Logger) error {
+func (r *JobSetReconciler) updateStatus(ctx context.Context, jobSet *jobsetv1alpha.JobSet, jobs *childJobs, log logr.Logger) error {
 	// TODO: Why is .Status.Active type []*corev1.ObjectReference instead of []*batchv1.Job?
 	// Is it because this is a generic way for kubebuilder to generate boilerplate data structures for CRDs?
 	jobSet.Status.Active = nil
@@ -227,7 +227,7 @@ func (r *JobSetReconciler) updateStatus(ctx context.Context, jobSet *jobsetv1.Jo
 	return nil
 }
 
-func (r *JobSetReconciler) createNewJobs(ctx context.Context, req ctrl.Request, jobSet *jobsetv1.JobSet, jobs *childJobs, log logr.Logger) error {
+func (r *JobSetReconciler) createNewJobs(ctx context.Context, req ctrl.Request, jobSet *jobsetv1alpha.JobSet, jobs *childJobs, log logr.Logger) error {
 	// Create jobs as necessary.
 	for i, jobTemplate := range jobSet.Spec.Jobs {
 		job, err := r.constructJobFromTemplate(jobSet, &jobTemplate)
@@ -262,7 +262,7 @@ func (r *JobSetReconciler) createNewJobs(ctx context.Context, req ctrl.Request, 
 	return nil
 }
 
-func (r *JobSetReconciler) createHeadlessSvcIfNotExist(ctx context.Context, req ctrl.Request, jobSet *jobsetv1.JobSet, job *batchv1.Job, log logr.Logger) error {
+func (r *JobSetReconciler) createHeadlessSvcIfNotExist(ctx context.Context, req ctrl.Request, jobSet *jobsetv1alpha.JobSet, job *batchv1.Job, log logr.Logger) error {
 	// Check if service already exists. Service name is same as job name.
 	if _, err := r.KubeClientSet.CoreV1().Services(req.Namespace).Get(ctx, job.Name, metav1.GetOptions{}); err != nil {
 		headlessSvc := corev1.Service{
