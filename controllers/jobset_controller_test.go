@@ -34,7 +34,7 @@ var _ = Describe("JobSet controller", func() {
 			ctx := context.Background()
 			jobSet := &jobsetv1alpha.JobSet{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "batch.x-k8s.io/v1",
+					APIVersion: "batch.x-k8s.io/v1alpha",
 					Kind:       "JobSet",
 				},
 				ObjectMeta: metav1.ObjectMeta{

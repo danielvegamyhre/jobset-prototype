@@ -1,4 +1,4 @@
-apiVersion: v1alpha1
+apiVersion: v1
 kind: Namespace
 metadata:
   labels:
@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: system
 ---
-apiVersion: apps/v1alpha1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller-manager
