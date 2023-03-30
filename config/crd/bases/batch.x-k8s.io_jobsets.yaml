@@ -9365,8 +9365,14 @@ spec:
                   - network
                   type: object
                 type: array
+              sequentialStartup:
+                description: If sequentialStartup if set, then spec.jobs will be created
+                  one at a time according to their order in the list. A job is created
+                  only after the pods of the previous one are Ready.
+                type: boolean
             required:
             - jobs
+            - sequentialStartup
             type: object
           status:
             description: JobSetStatus defines the observed state of JobSet
